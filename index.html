@@ -31,7 +31,7 @@
     <div id="timer-app" class="w-full max-w-lg bg-gray-800 shadow-2xl rounded-xl p-8 sm:p-12 text-center transition-all duration-500">
         
         <h1 class="text-3xl font-bold mb-2 text-gray-100">中間発表会</h1>
-        <p id="total-time-info" class="text-sm text-gray-400 mb-8"> 発表　6分 & 質疑　4分 (10分)</p>
+        <p id="total-time-info" class="text-sm text-gray-400 mb-8">発表 6分 & 質疑　4分 (10分)</p>
 
         <!-- Timer Display Area: Now just a centered container for the text -->
         <div id="timer-ring-container" class="flex flex-col items-center justify-center mb-8">
@@ -54,16 +54,18 @@
 
     <script>
         // --- Configuration Constants ---
-        const PRESENTATION_DURATION_SECONDS = 6 * 60; // 360 seconds
+        const PRESENTATION_DURATION_SECONDS = 6 * 60; // 360 seconds (Time that must elapse before Q&A starts)
         const QNA_DURATION_SECONDS = 4 * 60; // 240 seconds
         const TOTAL_DURATION_SECONDS = PRESENTATION_DURATION_SECONDS + QNA_DURATION_SECONDS; // 600 seconds
+        
+        // NEW TRANSITION POINT: Timer shows 4:00 (which is 240 seconds remaining)
+        const QNA_START_REMAINING_SECONDS = TOTAL_DURATION_SECONDS - PRESENTATION_DURATION_SECONDS; // 600 - 360 = 240 seconds
 
         // --- DOM Elements ---
         const timerDisplay = document.getElementById('timer-display');
         const statusDisplay = document.getElementById('status-display');
         const startResetBtn = document.getElementById('start-reset-btn');
         const msgBox = document.getElementById('message-box');
-        // Removed: progressCircle and CIRCUMFERENCE variables
 
         // --- State Variables ---
         let secondsRemaining = TOTAL_DURATION_SECONDS;
@@ -74,13 +76,20 @@
         // --- Helper Functions ---
 
         /**
-         * Initializes the Tone.js synth and plays a simple bell sound.
-         * Only initializes the AudioContext on the first user interaction (button click).
+         * Initializes the Tone.js synth and plays a simple desk bell sound effect.
          */
-        function ringBell(frequency = "C3", duration = "8n") {
+        function ringBell(frequency = "E5", duration = "16n") {
             try {
                 if (!bellSynth) {
-                    bellSynth = new Tone.MembraneSynth().toDestination();
+                    // Use a MetalSynth for a sharp, percussive 'ding' sound, similar to a desk bell.
+                    bellSynth = new Tone.MetalSynth({
+                        frequency: 200, 
+                        envelope: { attack: 0.001, decay: 0.4, release: 0.2 },
+                        harmonicity: 3.1, 
+                        modulationIndex: 1, 
+                        resonance: 4000, 
+                        octaves: 1.5 
+                    }).toDestination();
                 }
                 // Ensure audio context is started (important for browser security)
                 if (Tone.context.state !== 'running') {
@@ -95,8 +104,6 @@
 
         /**
          * Formats seconds into MM:SS string.
-         * @param {number} totalSeconds - The number of seconds to format.
-         * @returns {string} The formatted time string.
          */
         function formatTime(totalSeconds) {
             const minutes = Math.floor(totalSeconds / 60);
@@ -113,8 +120,8 @@
                 isRunning = false;
                 secondsRemaining = 0;
                 
-                // Final Bell Ring
-                ringBell("G3", "4n"); 
+                // Final Bell Ring at 0:00
+                ringBell("G5", "8n"); // Slightly lower frequency for the final tone
 
                 timerDisplay.textContent = formatTime(0);
                 statusDisplay.textContent = "TIME OVER";
@@ -128,10 +135,11 @@
             secondsRemaining--;
             
             // --- Phase Transition and Bell Logic ---
-            if (secondsRemaining === PRESENTATION_DURATION_SECONDS) {
-                // Bell at 6:00 (End of Presentation)
+            // Transition happens when remaining seconds equals the Q&A phase duration (4 minutes)
+            if (secondsRemaining === QNA_START_REMAINING_SECONDS) {
+                // Bell at 4:00 remaining (End of Presentation / Start of Q&A)
                 ringBell();
-                msgBox.textContent = "Presentation time is up! Q&A phase begins.";
+                msgBox.textContent = "発表終了";
             }
 
             // --- Update UI ---
@@ -140,13 +148,13 @@
             let phaseText = '';
             let phaseColor = '';
 
-            if (secondsRemaining > PRESENTATION_DURATION_SECONDS) {
-                // Presentation Phase (6:01 to 10:00)
+            if (secondsRemaining > QNA_START_REMAINING_SECONDS) {
+                // Presentation Phase (4:01 to 10:00)
                 phaseText = 'PRESENTATION';
                 phaseColor = 'text-emerald-400'; // Bright Green
             } else if (secondsRemaining > 0) {
-                // Q&A Phase (0:01 to 6:00)
-                phaseText = 'Q&A';
+                // Q&A Phase (0:01 to 4:00)
+                phaseText = '質疑';
                 phaseColor = 'text-blue-400'; // Bright Blue
             } else {
                 // Time Over
@@ -157,8 +165,8 @@
             statusDisplay.textContent = phaseText;
             statusDisplay.className = `text-xl font-semibold mt-2 ${phaseColor}`;
             
-            if (secondsRemaining < 60 && secondsRemaining % 10 === 0) {
-                 // Subtle warning tone every 10 seconds in the last minute
+            if (secondsRemaining < 60 && secondsRemaining % 10 === 0 && secondsRemaining > 0) {
+                 // Subtle warning tone every 10 seconds in the last minute of Q&A
                  ringBell("D4", "32n");
             }
         }
