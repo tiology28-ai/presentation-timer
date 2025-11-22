@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Presentation & Q&A Timer</title>
+    <!-- Load Tailwind CSS for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Tone.js for reliable, generated sound effects (the 'bell') -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        /* Custom styles for appearance */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+        }
+        .timer-display {
+            font-size: clamp(3rem, 15vw, 10rem); /* Fluid font size for responsiveness */
+            font-weight: 800;
+            letter-spacing: -0.05em;
+        }
+        /* Custom ring color for presentation phase (Green) */
+        .ring-presentation {
+            border-color: #10B981; /* Emerald 500 */
+        }
+        /* Custom ring color for Q&A phase (Blue) */
+        .ring-qna {
+            border-color: #3B82F6; /* Blue 500 */
+        }
+        /* Custom ring color for time over (Red) */
+        .ring-over {
+            border-color: #EF4444; /* Red 500 */
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <!-- Main Container -->
+    <div id="timer-app" class="w-full max-w-lg bg-white shadow-2xl rounded-xl p-8 sm:p-12 text-center transition-all duration-500">
+        
+        <h1 class="text-3xl font-bold mb-2 text-gray-800">Presentation Countdown</h1>
+        <p id="total-time-info" class="text-sm text-gray-500 mb-8">6:00 Presentation & 4:00 Q&A (10:00 Total)</p>
+
+        <!-- Timer Display Area -->
+        <div id="timer-ring-container" class="relative inline-flex mb-8">
+            <svg class="w-48 h-48 sm:w-64 sm:h-64 transform -rotate-90">
+                <!-- Background circle (light gray) -->
+                <circle id="timer-bg-circle" class="text-gray-200" stroke-width="8" stroke="currentColor" fill="transparent" r="80" cx="96" cy="96" />
+                <!-- Foreground circle (dynamic color based on phase) -->
+                <circle id="timer-progress-circle" class="ring-presentation transition-all duration-1000"
+                    stroke-width="8" stroke="currentColor" fill="transparent"
+                    r="80" cx="96" cy="96"
+                    style="stroke-dasharray: 502.4; stroke-dashoffset: 502.4;" />
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+                <div id="timer-display" class="timer-display text-gray-900">10:00</div>
+                <div id="status-display" class="text-xl font-semibold mt-2 text-emerald-600">READY</div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="space-y-4">
+            <button id="start-reset-btn" 
+                    class="w-full py-3 text-lg font-semibold rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition duration-150 shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-300">
+                Start Timer
+            </button>
+            <div id="message-box" class="h-6 text-sm font-medium text-red-600"></div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- Configuration Constants ---
+        const PRESENTATION_DURATION_SECONDS = 6 * 60; // 360 seconds
+        const QNA_DURATION_SECONDS = 4 * 60; // 240 seconds
+        const TOTAL_DURATION_SECONDS = PRESENTATION_DURATION_SECONDS + QNA_DURATION_SECONDS; // 600 seconds
+
+        // --- DOM Elements ---
+        const timerDisplay = document.getElementById('timer-display');
+        const statusDisplay = document.getElementById('status-display');
+        const startResetBtn = document.getElementById('start-reset-btn');
+        const msgBox = document.getElementById('message-box');
+        const progressCircle = document.getElementById('timer-progress-circle');
+
+        // SVG circle circumference for progress calculation (2 * PI * r)
+        // r=80, so circumference is 2 * 3.14159 * 80 ≈ 502.65
+        const CIRCUMFERENCE = 502.65; 
+        progressCircle.style.strokeDasharray = CIRCUMFERENCE;
+
+        // --- State Variables ---
+        let secondsRemaining = TOTAL_DURATION_SECONDS;
+        let timerInterval = null;
+        let isRunning = false;
+        let bellSynth = null;
+
+        // --- Helper Functions ---
+
+        /**
+         * Initializes the Tone.js synth and plays a simple bell sound.
+         * Only initializes the AudioContext on the first user interaction (button click).
+         */
+        function ringBell(frequency = "C3", duration = "8n") {
+            try {
+                if (!bellSynth) {
+                    bellSynth = new Tone.MembraneSynth().toDestination();
+                }
+                // Ensure audio context is started (important for browser security)
+                if (Tone.context.state !== 'running') {
+                    Tone.start();
+                }
+                bellSynth.triggerAttackRelease(frequency, duration);
+            } catch (e) {
+                console.error("Could not play sound:", e);
+                msgBox.textContent = "Error: Audio failed to load. Please check console.";
+            }
+        }
+
+        /**
+         * Formats seconds into MM:SS string.
+         * @param {number} totalSeconds - The number of seconds to format.
+         * @returns {string} The formatted time string.
+         */
+        function formatTime(totalSeconds) {
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        /**
+         * Updates the timer display and state every second.
+         */
+        function updateTimer() {
+            if (secondsRemaining <= 0) {
+                clearInterval(timerInterval);
+                isRunning = false;
+                secondsRemaining = 0;
+                
+                // Final Bell Ring
+                ringBell("G3", "4n"); // Higher frequency, longer duration for final tone
+
+                timerDisplay.textContent = formatTime(0);
+                statusDisplay.textContent = "TIME OVER";
+                statusDisplay.className = 'text-xl font-semibold mt-2 text-red-600';
+                startResetBtn.textContent = 'Reset Timer';
+                startResetBtn.className = startResetBtn.className.replace('bg-blue-600 hover:bg-blue-700', 'bg-red-600 hover:bg-red-700');
+                
+                // Update progress circle to show 100% elapsed
+                progressCircle.style.strokeDashoffset = 0;
+                progressCircle.className = 'ring-over transition-all duration-500';
+
+                return;
+            }
+
+            secondsRemaining--;
+            
+            // --- Phase Transition and Bell Logic ---
+            const timeElapsed = TOTAL_DURATION_SECONDS - secondsRemaining;
+
+            if (secondsRemaining === PRESENTATION_DURATION_SECONDS) {
+                // Bell at 6:00 (End of Presentation)
+                ringBell();
+                msgBox.textContent = "Presentation time is up! Q&A phase begins.";
+            }
+
+            // --- Update UI ---
+            timerDisplay.textContent = formatTime(secondsRemaining);
+            
+            // Calculate progress percentage and stroke offset
+            const progress = timeElapsed / TOTAL_DURATION_SECONDS;
+            const offset = CIRCUMFERENCE * progress;
+            progressCircle.style.strokeDashoffset = offset;
+            
+            let phaseText = '';
+            let phaseColor = '';
+            let ringClass = '';
+
+            if (secondsRemaining > PRESENTATION_DURATION_SECONDS) {
+                // Presentation Phase (6:01 to 10:00)
+                phaseText = 'PRESENTATION';
+                phaseColor = 'text-emerald-600';
+                ringClass = 'ring-presentation';
+            } else if (secondsRemaining > 0) {
+                // Q&A Phase (0:01 to 6:00)
+                phaseText = 'Q&A';
+                phaseColor = 'text-blue-600';
+                ringClass = 'ring-qna';
+            } else {
+                // Time Over
+                phaseText = 'TIME OVER';
+                phaseColor = 'text-red-600';
+                ringClass = 'ring-over';
+            }
+
+            statusDisplay.textContent = phaseText;
+            statusDisplay.className = `text-xl font-semibold mt-2 ${phaseColor}`;
+            progressCircle.className = `${ringClass} transition-all duration-500`;
+            
+            if (secondsRemaining < 60 && secondsRemaining % 10 === 0) {
+                 // Subtle warning tone every 10 seconds in the last minute
+                 ringBell("D4", "32n");
+            }
+        }
+
+        /**
+         * Starts the timer or resets it based on the current state.
+         */
+        function handleStartReset() {
+            // First, enable the audio context on user click
+            if (Tone.context.state !== 'running') {
+                Tone.start();
+            }
+
+            if (isRunning) {
+                // Stop the timer
+                clearInterval(timerInterval);
+                isRunning = false;
+                startResetBtn.textContent = 'Continue';
+            } else if (secondsRemaining > 0 && secondsRemaining < TOTAL_DURATION_SECONDS) {
+                // Continue the timer
+                isRunning = true;
+                timerInterval = setInterval(updateTimer, 1000);
+                startResetBtn.textContent = 'Pause';
+            } else {
+                // Start or Reset the timer
+                if (timerInterval) clearInterval(timerInterval);
+                secondsRemaining = TOTAL_DURATION_SECONDS;
+                isRunning = true;
+                msgBox.textContent = '';
+                
+                // Initial UI setup
+                timerDisplay.textContent = formatTime(TOTAL_DURATION_SECONDS);
+                statusDisplay.textContent = 'PRESENTATION';
+                statusDisplay.className = 'text-xl font-semibold mt-2 text-emerald-600';
+                startResetBtn.textContent = 'Pause';
+                startResetBtn.className = startResetBtn.className.replace('bg-red-600 hover:bg-red-700', 'bg-blue-600 hover:bg-blue-700');
+                
+                // Reset progress circle to 0% elapsed
+                progressCircle.style.strokeDashoffset = CIRCUMFERENCE;
+                progressCircle.className = 'ring-presentation transition-all duration-500';
+
+                timerInterval = setInterval(updateTimer, 1000);
+            }
+        }
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            handleStartReset(); // Initial call sets up the UI for the "Start Timer" state
+            clearInterval(timerInterval); // Stop the timer immediately after setup
+            isRunning = false;
+            startResetBtn.textContent = 'Start Timer';
+        });
+
+        startResetBtn.addEventListener('click', handleStartReset);
+    </script>
+</body>
+</html>
