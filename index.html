@@ -41,14 +41,16 @@
     <div id="timer-app" class="w-full max-w-lg bg-gray-800 shadow-2xl rounded-xl p-8 sm:p-12 text-center transition-all duration-500">
         
         <!-- Updated text color for contrast -->
-        <h1 class="text-3xl font-bold mb-2 text-gray-100">中間発表</h1>
+        <h1 class="text-3xl font-bold mb-2 text-gray-100">Presentation Countdown</h1>
         <p id="total-time-info" class="text-sm text-gray-400 mb-8">6:00 Presentation & 4:00 Q&A (10:00 Total)</p>
 
         <!-- Timer Display Area: Added bg-gray-800 for consistent dark background -->
         <div id="timer-ring-container" class="relative inline-flex mb-8 bg-gray-800 rounded-full">
             <svg class="w-48 h-48 sm:w-64 sm:h-64 transform -rotate-90">
-                <!-- Background circle (Darker Gray) -->
-                <circle id="timer-bg-circle" class="text-gray-700" stroke-width="8" stroke="currentColor" fill="transparent" r="80" cx="96" cy="96" />
+                <!-- 
+                    The static background circle has been removed (was #timer-bg-circle) 
+                    Only the moving progress indicator remains.
+                -->
                 <!-- Foreground circle (dynamic color based on phase) -->
                 <circle id="timer-progress-circle" class="ring-presentation transition-all duration-1000"
                     stroke-width="8" stroke="currentColor" fill="transparent"
