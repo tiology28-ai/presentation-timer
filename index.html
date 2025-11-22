@@ -12,40 +12,43 @@
         /* Custom styles for appearance */
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f7f7f7;
+            /* Change body background to dark gray/black */
+            background-color: #111827; /* Tailwind Gray 900 */
         }
         .timer-display {
             font-size: clamp(3rem, 15vw, 10rem); /* Fluid font size for responsiveness */
             font-weight: 800;
             letter-spacing: -0.05em;
         }
-        /* Custom ring color for presentation phase (Green) */
+        /* Custom ring color for presentation phase (Bright Green) */
         .ring-presentation {
-            border-color: #10B981; /* Emerald 500 */
+            border-color: #34D399; /* Emerald 400 */
         }
-        /* Custom ring color for Q&A phase (Blue) */
+        /* Custom ring color for Q&A phase (Bright Blue) */
         .ring-qna {
-            border-color: #3B82F6; /* Blue 500 */
+            border-color: #60A5FA; /* Blue 400 */
         }
-        /* Custom ring color for time over (Red) */
+        /* Custom ring color for time over (Bright Red) */
         .ring-over {
-            border-color: #EF4444; /* Red 500 */
+            border-color: #F87171; /* Red 400 */
         }
     </style>
 </head>
-<body class="min-h-screen flex items-center justify-center p-4">
+<!-- Apply dark background and light text to the body -->
+<body class="min-h-screen flex items-center justify-center p-4 text-gray-100">
 
-    <!-- Main Container -->
-    <div id="timer-app" class="w-full max-w-lg bg-white shadow-2xl rounded-xl p-8 sm:p-12 text-center transition-all duration-500">
+    <!-- Main Container: Changed card background to Gray 800 -->
+    <div id="timer-app" class="w-full max-w-lg bg-gray-800 shadow-2xl rounded-xl p-8 sm:p-12 text-center transition-all duration-500">
         
-        <h1 class="text-3xl font-bold mb-2 text-gray-800">Presentation Countdown</h1>
-        <p id="total-time-info" class="text-sm text-gray-500 mb-8">6:00 Presentation & 4:00 Q&A (10:00 Total)</p>
+        <!-- Updated text color for contrast -->
+        <h1 class="text-3xl font-bold mb-2 text-gray-100">Presentation Countdown</h1>
+        <p id="total-time-info" class="text-sm text-gray-400 mb-8">6:00 Presentation & 4:00 Q&A (10:00 Total)</p>
 
-        <!-- Timer Display Area -->
-        <div id="timer-ring-container" class="relative inline-flex mb-8">
+        <!-- Timer Display Area: Added bg-gray-800 for consistent dark background -->
+        <div id="timer-ring-container" class="relative inline-flex mb-8 bg-gray-800 rounded-full">
             <svg class="w-48 h-48 sm:w-64 sm:h-64 transform -rotate-90">
-                <!-- Background circle (light gray) -->
-                <circle id="timer-bg-circle" class="text-gray-200" stroke-width="8" stroke="currentColor" fill="transparent" r="80" cx="96" cy="96" />
+                <!-- Background circle (Darker Gray) -->
+                <circle id="timer-bg-circle" class="text-gray-700" stroke-width="8" stroke="currentColor" fill="transparent" r="80" cx="96" cy="96" />
                 <!-- Foreground circle (dynamic color based on phase) -->
                 <circle id="timer-progress-circle" class="ring-presentation transition-all duration-1000"
                     stroke-width="8" stroke="currentColor" fill="transparent"
@@ -53,18 +56,21 @@
                     style="stroke-dasharray: 502.4; stroke-dashoffset: 502.4;" />
             </svg>
             <div class="absolute inset-0 flex flex-col items-center justify-center">
-                <div id="timer-display" class="timer-display text-gray-900">10:00</div>
-                <div id="status-display" class="text-xl font-semibold mt-2 text-emerald-600">READY</div>
+                <!-- Timer Display: Changed text color to bright green (Emerald 400) -->
+                <div id="timer-display" class="timer-display text-emerald-400">10:00</div>
+                <!-- Status Display: Changed text color to bright green (Emerald 400) -->
+                <div id="status-display" class="text-xl font-semibold mt-2 text-emerald-400">READY</div>
             </div>
         </div>
 
         <!-- Controls -->
         <div class="space-y-4">
+            <!-- Button colors remain bright for good contrast -->
             <button id="start-reset-btn" 
                     class="w-full py-3 text-lg font-semibold rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition duration-150 shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-300">
                 Start Timer
             </button>
-            <div id="message-box" class="h-6 text-sm font-medium text-red-600"></div>
+            <div id="message-box" class="h-6 text-sm font-medium text-red-400"></div>
         </div>
 
     </div>
@@ -140,7 +146,8 @@
 
                 timerDisplay.textContent = formatTime(0);
                 statusDisplay.textContent = "TIME OVER";
-                statusDisplay.className = 'text-xl font-semibold mt-2 text-red-600';
+                // Status color changed to Red 400 for contrast on dark background
+                statusDisplay.className = 'text-xl font-semibold mt-2 text-red-400';
                 startResetBtn.textContent = 'Reset Timer';
                 startResetBtn.className = startResetBtn.className.replace('bg-blue-600 hover:bg-blue-700', 'bg-red-600 hover:bg-red-700');
                 
@@ -177,17 +184,17 @@
             if (secondsRemaining > PRESENTATION_DURATION_SECONDS) {
                 // Presentation Phase (6:01 to 10:00)
                 phaseText = 'PRESENTATION';
-                phaseColor = 'text-emerald-600';
+                phaseColor = 'text-emerald-400'; // Bright Green
                 ringClass = 'ring-presentation';
             } else if (secondsRemaining > 0) {
                 // Q&A Phase (0:01 to 6:00)
                 phaseText = 'Q&A';
-                phaseColor = 'text-blue-600';
+                phaseColor = 'text-blue-400'; // Bright Blue
                 ringClass = 'ring-qna';
             } else {
                 // Time Over
                 phaseText = 'TIME OVER';
-                phaseColor = 'text-red-600';
+                phaseColor = 'text-red-400'; // Bright Red
                 ringClass = 'ring-over';
             }
 
@@ -230,7 +237,7 @@
                 // Initial UI setup
                 timerDisplay.textContent = formatTime(TOTAL_DURATION_SECONDS);
                 statusDisplay.textContent = 'PRESENTATION';
-                statusDisplay.className = 'text-xl font-semibold mt-2 text-emerald-600';
+                statusDisplay.className = 'text-xl font-semibold mt-2 text-emerald-400'; // Initial state color
                 startResetBtn.textContent = 'Pause';
                 startResetBtn.className = startResetBtn.className.replace('bg-red-600 hover:bg-red-700', 'bg-blue-600 hover:bg-blue-700');
                 
