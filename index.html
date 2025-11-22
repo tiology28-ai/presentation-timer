@@ -12,62 +12,37 @@
         /* Custom styles for appearance */
         body {
             font-family: 'Inter', sans-serif;
-            /* Change body background to dark gray/black */
+            /* Dark background */
             background-color: #111827; /* Tailwind Gray 900 */
         }
         .timer-display {
-            font-size: clamp(3rem, 15vw, 10rem); /* Fluid font size for responsiveness */
+            /* Fluid font size for responsiveness (large digital display) */
+            font-size: clamp(3rem, 15vw, 10rem); 
             font-weight: 800;
+            line-height: 1; /* Tighter line spacing */
             letter-spacing: -0.05em;
-        }
-        /* Custom ring color for presentation phase (Bright Green) */
-        .ring-presentation {
-            border-color: #34D399; /* Emerald 400 */
-        }
-        /* Custom ring color for Q&A phase (Bright Blue) */
-        .ring-qna {
-            border-color: #60A5FA; /* Blue 400 */
-        }
-        /* Custom ring color for time over (Bright Red) */
-        .ring-over {
-            border-color: #F87171; /* Red 400 */
         }
     </style>
 </head>
 <!-- Apply dark background and light text to the body -->
 <body class="min-h-screen flex items-center justify-center p-4 text-gray-100">
 
-    <!-- Main Container: Changed card background to Gray 800 -->
+    <!-- Main Container: Dark card background -->
     <div id="timer-app" class="w-full max-w-lg bg-gray-800 shadow-2xl rounded-xl p-8 sm:p-12 text-center transition-all duration-500">
         
-        <!-- Updated text color for contrast -->
         <h1 class="text-3xl font-bold mb-2 text-gray-100">Presentation Countdown</h1>
         <p id="total-time-info" class="text-sm text-gray-400 mb-8">6:00 Presentation & 4:00 Q&A (10:00 Total)</p>
 
-        <!-- Timer Display Area: Added bg-gray-800 for consistent dark background -->
-        <div id="timer-ring-container" class="relative inline-flex mb-8 bg-gray-800 rounded-full">
-            <svg class="w-48 h-48 sm:w-64 sm:h-64 transform -rotate-90">
-                <!-- 
-                    The static background circle has been removed (was #timer-bg-circle) 
-                    Only the moving progress indicator remains.
-                -->
-                <!-- Foreground circle (dynamic color based on phase) -->
-                <circle id="timer-progress-circle" class="ring-presentation transition-all duration-1000"
-                    stroke-width="8" stroke="currentColor" fill="transparent"
-                    r="80" cx="96" cy="96"
-                    style="stroke-dasharray: 502.4; stroke-dashoffset: 502.4;" />
-            </svg>
-            <div class="absolute inset-0 flex flex-col items-center justify-center">
-                <!-- Timer Display: Changed text color to bright green (Emerald 400) -->
-                <div id="timer-display" class="timer-display text-emerald-400">10:00</div>
-                <!-- Status Display: Changed text color to bright green (Emerald 400) -->
-                <div id="status-display" class="text-xl font-semibold mt-2 text-emerald-400">READY</div>
-            </div>
+        <!-- Timer Display Area: Now just a centered container for the text -->
+        <div id="timer-ring-container" class="flex flex-col items-center justify-center mb-8">
+            <!-- Timer Display (Digital Time) -->
+            <div id="timer-display" class="timer-display text-emerald-400">10:00</div>
+            <!-- Status Display (Presentation / Q&A) -->
+            <div id="status-display" class="text-xl font-semibold mt-2 text-emerald-400">READY</div>
         </div>
 
         <!-- Controls -->
         <div class="space-y-4">
-            <!-- Button colors remain bright for good contrast -->
             <button id="start-reset-btn" 
                     class="w-full py-3 text-lg font-semibold rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition duration-150 shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-300">
                 Start Timer
@@ -88,12 +63,7 @@
         const statusDisplay = document.getElementById('status-display');
         const startResetBtn = document.getElementById('start-reset-btn');
         const msgBox = document.getElementById('message-box');
-        const progressCircle = document.getElementById('timer-progress-circle');
-
-        // SVG circle circumference for progress calculation (2 * PI * r)
-        // r=80, so circumference is 2 * 3.14159 * 80 ≈ 502.65
-        const CIRCUMFERENCE = 502.65; 
-        progressCircle.style.strokeDasharray = CIRCUMFERENCE;
+        // Removed: progressCircle and CIRCUMFERENCE variables
 
         // --- State Variables ---
         let secondsRemaining = TOTAL_DURATION_SECONDS;
@@ -144,27 +114,20 @@
                 secondsRemaining = 0;
                 
                 // Final Bell Ring
-                ringBell("G3", "4n"); // Higher frequency, longer duration for final tone
+                ringBell("G3", "4n"); 
 
                 timerDisplay.textContent = formatTime(0);
                 statusDisplay.textContent = "TIME OVER";
-                // Status color changed to Red 400 for contrast on dark background
                 statusDisplay.className = 'text-xl font-semibold mt-2 text-red-400';
                 startResetBtn.textContent = 'Reset Timer';
                 startResetBtn.className = startResetBtn.className.replace('bg-blue-600 hover:bg-blue-700', 'bg-red-600 hover:bg-red-700');
                 
-                // Update progress circle to show 100% elapsed
-                progressCircle.style.strokeDashoffset = 0;
-                progressCircle.className = 'ring-over transition-all duration-500';
-
                 return;
             }
 
             secondsRemaining--;
             
             // --- Phase Transition and Bell Logic ---
-            const timeElapsed = TOTAL_DURATION_SECONDS - secondsRemaining;
-
             if (secondsRemaining === PRESENTATION_DURATION_SECONDS) {
                 // Bell at 6:00 (End of Presentation)
                 ringBell();
@@ -174,35 +137,25 @@
             // --- Update UI ---
             timerDisplay.textContent = formatTime(secondsRemaining);
             
-            // Calculate progress percentage and stroke offset
-            const progress = timeElapsed / TOTAL_DURATION_SECONDS;
-            const offset = CIRCUMFERENCE * progress;
-            progressCircle.style.strokeDashoffset = offset;
-            
             let phaseText = '';
             let phaseColor = '';
-            let ringClass = '';
 
             if (secondsRemaining > PRESENTATION_DURATION_SECONDS) {
                 // Presentation Phase (6:01 to 10:00)
                 phaseText = 'PRESENTATION';
                 phaseColor = 'text-emerald-400'; // Bright Green
-                ringClass = 'ring-presentation';
             } else if (secondsRemaining > 0) {
                 // Q&A Phase (0:01 to 6:00)
                 phaseText = 'Q&A';
                 phaseColor = 'text-blue-400'; // Bright Blue
-                ringClass = 'ring-qna';
             } else {
                 // Time Over
                 phaseText = 'TIME OVER';
                 phaseColor = 'text-red-400'; // Bright Red
-                ringClass = 'ring-over';
             }
 
             statusDisplay.textContent = phaseText;
             statusDisplay.className = `text-xl font-semibold mt-2 ${phaseColor}`;
-            progressCircle.className = `${ringClass} transition-all duration-500`;
             
             if (secondsRemaining < 60 && secondsRemaining % 10 === 0) {
                  // Subtle warning tone every 10 seconds in the last minute
@@ -239,14 +192,10 @@
                 // Initial UI setup
                 timerDisplay.textContent = formatTime(TOTAL_DURATION_SECONDS);
                 statusDisplay.textContent = 'PRESENTATION';
-                statusDisplay.className = 'text-xl font-semibold mt-2 text-emerald-400'; // Initial state color
+                statusDisplay.className = 'text-xl font-semibold mt-2 text-emerald-400'; 
                 startResetBtn.textContent = 'Pause';
                 startResetBtn.className = startResetBtn.className.replace('bg-red-600 hover:bg-red-700', 'bg-blue-600 hover:bg-blue-700');
                 
-                // Reset progress circle to 0% elapsed
-                progressCircle.style.strokeDashoffset = CIRCUMFERENCE;
-                progressCircle.className = 'ring-presentation transition-all duration-500';
-
                 timerInterval = setInterval(updateTimer, 1000);
             }
         }
