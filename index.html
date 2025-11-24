@@ -6,8 +6,7 @@
     <title>Presentation & Q&A Timer</title>
     <!-- Load Tailwind CSS for modern styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Load Tone.js for reliable audio playback and synthesis -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Removed Tone.js script as it is no longer needed -->
     <style>
         /* Custom styles for appearance */
         body {
@@ -75,78 +74,13 @@
         const resetBtn = document.getElementById('reset-btn');
         const msgBox = document.getElementById('message-box');
 
-        // --- Tone.js Audio Players ---
-        let bellStartPlayer = null;
-        let bellQNAPlayer = null; 
-        let bellEndPlayer = null;
-
         // --- State Variables ---
         let secondsRemaining = TOTAL_DURATION_SECONDS;
         let timerInterval = null;
         let isRunning = false;
         
-        /**
-         * Initializes Tone.js players for the uploaded audio files.
-         */
-        function initializeAudioPlayers() {
-             // Disable button until audio is loaded to prevent initial playback failure
-             startPauseContinueBtn.disabled = true;
-             startPauseContinueBtn.textContent = 'Loading Audio...';
-             
-             // The path "uploaded:..." is expected to be correctly resolved by the environment.
-             bellStartPlayer = new Tone.Player({
-                 url: "uploaded:bell 1.MP3",
-                 onload: () => {
-                     console.log("Bell 1 loaded.");
-                     // Only enable the button once the main bell is loaded
-                     startPauseContinueBtn.disabled = false;
-                     startPauseContinueBtn.textContent = 'Start Timer';
-                 },
-                 onerror: (e) => console.error("Error loading Bell 1:", e),
-             }).toDestination();
-             
-             // Bell 2 for Q&A transition (using bell 3.MP3 as requested)
-             bellQNAPlayer = new Tone.Player({
-                 url: "uploaded:bell 3.MP3",
-                 onload: () => console.log("Bell QNA (2) loaded."),
-                 onerror: (e) => console.error("Error loading Bell 2:", e),
-             }).toDestination();
-
-             // Bell 3 for End (0:00)
-             bellEndPlayer = new Tone.Player({
-                 url: "uploaded:bell 3.MP3",
-                 onload: () => console.log("Bell 3 loaded."),
-                 onerror: (e) => console.error("Error loading Bell 3:", e),
-             }).toDestination();
-        }
-
-        /**
-         * Plays a Tone.Player instance.
-         * @param {Tone.Player} player - The Tone.Player instance to play.
-         */
-        function playToneBell(player) {
-            // Check if the player is loaded before attempting to play
-            if (!player || !player.loaded) {
-                console.warn("Attempted to play a bell that isn't loaded yet.");
-                return;
-            }
-
-            // Ensure audio context is started (required by browsers for user interaction)
-            if (Tone.context.state !== 'running') {
-                // If context isn't running, start it on interaction, then play.
-                Tone.start().then(() => {
-                    console.log("Audio Context Started on interaction.");
-                    player.stop(); 
-                    player.start(0);
-                }).catch(e => console.error("Failed to start Tone context:", e));
-            } else {
-                // Context is running, just play the bell
-                player.stop(); 
-                player.start(0);
-            }
-        }
-
-
+        // Removed all Tone.js functions (ringStartBell, ringQNABell, ringEndBell)
+        
         /**
          * Formats seconds into MM:SS string, using absolute value for count-up.
          */
@@ -169,7 +103,7 @@
             let timeColor = '';
             let displaySeconds = secondsRemaining;
 
-            // --- Phase Transition and Bell Logic ---
+            // --- Phase Transition Logic ---
 
             if (secondsRemaining > QNA_START_REMAINING_SECONDS) {
                 // PHASE 1: PRESENTATION (Countdown: 10:00 down to 4:01)
@@ -184,9 +118,9 @@
             } else if (secondsRemaining > 0) {
                 // PHASE 2: Q&A (Countdown: 4:00 down to 0:01)
                 
-                // Bell 2 (Custom Audio) at 4:00 remaining (Q&A phase start)
+                // Message alert at 4:00 remaining (Q&A phase start)
                 if (secondsRemaining === QNA_START_REMAINING_SECONDS) {
-                    playToneBell(bellQNAPlayer); 
+                    // Removed ringQNABell()
                     msgBox.textContent = "Presentation time is up! Q&A phase begins.";
                 }
 
@@ -198,7 +132,7 @@
                 
             } else if (secondsRemaining === 0) {
                 // PHASE 3: TIME ZERO (Moment of transition)
-                playToneBell(bellEndPlayer); // Bell 3
+                // Removed ringEndBell()
                 
                 phaseText = 'TIME OVER';
                 phaseColor = 'text-red-400';
@@ -238,11 +172,16 @@
          * Starts, pauses, or continues the timer.
          */
         function handleStartPauseContinue() {
-             // Prevent starting if the audio isn't loaded yet
-            if (startPauseContinueBtn.disabled) {
-                return;
-            }
-
+            // No audio context setup needed anymore
+            startOrContinueTimer();
+        }
+        
+        /**
+         * Contains the core logic for starting/continuing the timer.
+         */
+        function startOrContinueTimer() {
+            // The button is never disabled now
+            
             if (isRunning) {
                 // Stop the timer (PAUSE)
                 clearInterval(timerInterval);
@@ -262,10 +201,7 @@
                 isRunning = true;
                 timerInterval = setInterval(updateTimer, 1000);
                 
-                // Play Bell 1 only upon the initial start from the READY state
-                if (isInitialStart) {
-                    playToneBell(bellStartPlayer);
-                }
+                // Removed ringStartBell()
                 
                 // Update button text based on the phase color
                 if (secondsRemaining <= 0) {
@@ -273,9 +209,10 @@
                 } else {
                     startPauseContinueBtn.textContent = 'Pause';
                 }
-                
             }
         }
+
+
         
         /**
          * Resets the timer to the initial state (10:00, READY, paused).
@@ -292,22 +229,15 @@
             statusDisplay.className = 'text-xl font-semibold mt-2 text-emerald-400'; 
             timerDisplay.className = 'timer-display text-emerald-400';
             
-            // Restore button text/state only if audio is already loaded
-            if (bellStartPlayer && bellStartPlayer.loaded) {
-                startPauseContinueBtn.textContent = 'Start Timer';
-                startPauseContinueBtn.className = startPauseContinueBtn.className.replace('bg-red-600 hover:bg-red-700', 'bg-blue-600 hover:bg-blue-700');
-            }
+            // Restore button text/state
+            startPauseContinueBtn.disabled = false;
+            startPauseContinueBtn.textContent = 'Start Timer';
+            startPauseContinueBtn.className = startPauseContinueBtn.className.replace('bg-red-600 hover:bg-red-700', 'bg-blue-600 hover:bg-blue-700');
         }
 
 
         // --- Initialization ---
         document.addEventListener('DOMContentLoaded', () => {
-            // Attempt to start the audio context immediately on load (though it may need a user click)
-            if (Tone.context.state !== 'running') {
-                 Tone.start().catch(e => console.error("Initial Tone.start failed:", e));
-            }
-            
-            initializeAudioPlayers(); // Initialize Tone.js players and disables button
             handleReset(); // Initial setup to display 10:00 and READY, but paused.
         });
 
