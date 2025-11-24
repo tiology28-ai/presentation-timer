@@ -27,9 +27,6 @@
 <!-- Apply dark background and light text to the body -->
 <body class="min-h-screen flex items-center justify-center p-4 text-gray-100">
 
-    <!-- Audio Elements are now initialized via JavaScript using Tone.Player,
-         so the HTML tags are removed to avoid conflict and errors. -->
-
     <!-- Main Container: Dark card background -->
     <div id="timer-app" class="w-full max-w-lg bg-gray-800 shadow-2xl rounded-xl p-8 sm:p-12 text-center transition-all duration-500">
         
@@ -90,15 +87,21 @@
         
         /**
          * Initializes Tone.js players for the uploaded audio files.
-         * Using Tone.Player is generally more robust in browser environments than
-         * relying on the native HTML Audio element with uploaded file URLs.
          */
         function initializeAudioPlayers() {
-             // The Tone.Player handles the asynchronous loading of the audio files
+             // Disable button until audio is loaded to prevent initial playback failure
+             startPauseContinueBtn.disabled = true;
+             startPauseContinueBtn.textContent = 'Loading Audio...';
+             
              // The path "uploaded:..." is expected to be correctly resolved by the environment.
              bellStartPlayer = new Tone.Player({
                  url: "uploaded:bell 1.MP3",
-                 onload: () => console.log("Bell 1 loaded."),
+                 onload: () => {
+                     console.log("Bell 1 loaded.");
+                     // Only enable the button once the main bell is loaded
+                     startPauseContinueBtn.disabled = false;
+                     startPauseContinueBtn.textContent = 'Start Timer';
+                 },
                  onerror: (e) => console.error("Error loading Bell 1:", e),
              }).toDestination();
              
@@ -122,25 +125,24 @@
          * @param {Tone.Player} player - The Tone.Player instance to play.
          */
         function playToneBell(player) {
+            // Check if the player is loaded before attempting to play
+            if (!player || !player.loaded) {
+                console.warn("Attempted to play a bell that isn't loaded yet.");
+                return;
+            }
+
             // Ensure audio context is started (required by browsers for user interaction)
             if (Tone.context.state !== 'running') {
+                // If context isn't running, start it on interaction, then play.
                 Tone.start().then(() => {
-                    console.log("Audio Context Started.");
-                    // Check if the player is loaded and not already playing
-                    if (player && player.state === 'started') {
-                        player.stop(); // Stop if already playing (for quick repeated calls)
-                    }
-                    if (player && player.loaded) {
-                        player.start(0); // Play from the start
-                    }
+                    console.log("Audio Context Started on interaction.");
+                    player.stop(); 
+                    player.start(0);
                 }).catch(e => console.error("Failed to start Tone context:", e));
             } else {
-                 if (player && player.state === 'started') {
-                    player.stop(); 
-                }
-                if (player && player.loaded) {
-                    player.start(0);
-                }
+                // Context is running, just play the bell
+                player.stop(); 
+                player.start(0);
             }
         }
 
@@ -236,6 +238,11 @@
          * Starts, pauses, or continues the timer.
          */
         function handleStartPauseContinue() {
+             // Prevent starting if the audio isn't loaded yet
+            if (startPauseContinueBtn.disabled) {
+                return;
+            }
+
             if (isRunning) {
                 // Stop the timer (PAUSE)
                 clearInterval(timerInterval);
@@ -284,14 +291,23 @@
             statusDisplay.textContent = 'READY';
             statusDisplay.className = 'text-xl font-semibold mt-2 text-emerald-400'; 
             timerDisplay.className = 'timer-display text-emerald-400';
-            startPauseContinueBtn.textContent = 'Start Timer';
-            startPauseContinueBtn.className = startPauseContinueBtn.className.replace('bg-red-600 hover:bg-red-700', 'bg-blue-600 hover:bg-blue-700');
+            
+            // Restore button text/state only if audio is already loaded
+            if (bellStartPlayer && bellStartPlayer.loaded) {
+                startPauseContinueBtn.textContent = 'Start Timer';
+                startPauseContinueBtn.className = startPauseContinueBtn.className.replace('bg-red-600 hover:bg-red-700', 'bg-blue-600 hover:bg-blue-700');
+            }
         }
 
 
         // --- Initialization ---
         document.addEventListener('DOMContentLoaded', () => {
-            initializeAudioPlayers(); // Initialize Tone.js players on load
+            // Attempt to start the audio context immediately on load (though it may need a user click)
+            if (Tone.context.state !== 'running') {
+                 Tone.start().catch(e => console.error("Initial Tone.start failed:", e));
+            }
+            
+            initializeAudioPlayers(); // Initialize Tone.js players and disables button
             handleReset(); // Initial setup to display 10:00 and READY, but paused.
         });
 
