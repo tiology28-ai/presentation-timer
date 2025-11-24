@@ -6,7 +6,7 @@
     <title>Presentation & Q&A Timer</title>
     <!-- Load Tailwind CSS for modern styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Load Tone.js for reliable, generated sound effects (the 'bell') -->
+    <!-- Load Tone.js for reliable audio playback and synthesis -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         /* Custom styles for appearance */
@@ -27,11 +27,14 @@
 <!-- Apply dark background and light text to the body -->
 <body class="min-h-screen flex items-center justify-center p-4 text-gray-100">
 
+    <!-- Audio Elements are now initialized via JavaScript using Tone.Player,
+         so the HTML tags are removed to avoid conflict and errors. -->
+
     <!-- Main Container: Dark card background -->
     <div id="timer-app" class="w-full max-w-lg bg-gray-800 shadow-2xl rounded-xl p-8 sm:p-12 text-center transition-all duration-500">
         
-        <h1 class="text-3xl font-bold mb-2 text-gray-100">中間発表会</h1>
-        <p id="total-time-info" class="text-sm text-gray-400 mb-8">発表 6分 & 質疑　4分 (10分)</p>
+        <h1 class="text-3xl font-bold mb-2 text-gray-100">Presentation Countdown</h1>
+        <p id="total-time-info" class="text-sm text-gray-400 mb-8">6:00 Presentation & 4:00 Q&A (10:00 Total)</p>
 
         <!-- Timer Display Area: Now just a centered container for the text -->
         <div id="timer-ring-container" class="flex flex-col items-center justify-center mb-8">
@@ -43,10 +46,17 @@
 
         <!-- Controls -->
         <div class="space-y-4">
-            <button id="start-reset-btn" 
-                    class="w-full py-3 text-lg font-semibold rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition duration-150 shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-300">
-                Start Timer
-            </button>
+            <!-- Buttons arranged side-by-side -->
+            <div class="flex space-x-4">
+                <button id="start-pause-continue-btn" 
+                        class="flex-1 py-3 text-lg font-semibold rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition duration-150 shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-300">
+                    Start Timer
+                </button>
+                <button id="reset-btn" 
+                        class="py-3 px-6 text-lg font-semibold rounded-lg text-white bg-gray-600 hover:bg-gray-700 transition duration-150 shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-gray-500">
+                    Reset
+                </button>
+            </div>
             <div id="message-box" class="h-6 text-sm font-medium text-red-400"></div>
         </div>
 
@@ -54,60 +64,94 @@
 
     <script>
         // --- Configuration Constants ---
-        const PRESENTATION_DURATION_SECONDS = 6 * 60; // 360 seconds (Time that must elapse before Q&A starts)
+        const PRESENTATION_DURATION_SECONDS = 6 * 60; // 360 seconds
         const QNA_DURATION_SECONDS = 4 * 60; // 240 seconds
         const TOTAL_DURATION_SECONDS = PRESENTATION_DURATION_SECONDS + QNA_DURATION_SECONDS; // 600 seconds
         
-        // NEW TRANSITION POINT: Timer shows 4:00 (which is 240 seconds remaining)
+        // TRANSITION POINT 1 (Q&A Start): Timer shows 4:00 (240 seconds remaining)
         const QNA_START_REMAINING_SECONDS = TOTAL_DURATION_SECONDS - PRESENTATION_DURATION_SECONDS; // 600 - 360 = 240 seconds
 
         // --- DOM Elements ---
         const timerDisplay = document.getElementById('timer-display');
         const statusDisplay = document.getElementById('status-display');
-        const startResetBtn = document.getElementById('start-reset-btn');
+        const startPauseContinueBtn = document.getElementById('start-pause-continue-btn'); 
+        const resetBtn = document.getElementById('reset-btn');
         const msgBox = document.getElementById('message-box');
+
+        // --- Tone.js Audio Players ---
+        let bellStartPlayer = null;
+        let bellQNAPlayer = null; 
+        let bellEndPlayer = null;
 
         // --- State Variables ---
         let secondsRemaining = TOTAL_DURATION_SECONDS;
         let timerInterval = null;
         let isRunning = false;
-        let bellSynth = null;
-
-        // --- Helper Functions ---
-
+        
         /**
-         * Initializes the Tone.js synth and plays a simple desk bell sound effect.
+         * Initializes Tone.js players for the uploaded audio files.
+         * Using Tone.Player is generally more robust in browser environments than
+         * relying on the native HTML Audio element with uploaded file URLs.
          */
-        function ringBell(frequency = "E5", duration = "16n") {
-            try {
-                if (!bellSynth) {
-                    // Use a MetalSynth for a sharp, percussive 'ding' sound, similar to a desk bell.
-                    bellSynth = new Tone.MetalSynth({
-                        frequency: 200, 
-                        envelope: { attack: 0.001, decay: 0.4, release: 0.2 },
-                        harmonicity: 3.1, 
-                        modulationIndex: 1, 
-                        resonance: 4000, 
-                        octaves: 1.5 
-                    }).toDestination();
-                }
-                // Ensure audio context is started (important for browser security)
-                if (Tone.context.state !== 'running') {
-                    Tone.start();
-                }
-                bellSynth.triggerAttackRelease(frequency, duration);
-            } catch (e) {
-                console.error("Could not play sound:", e);
-                msgBox.textContent = "Error: Audio failed to load. Please check console.";
-            }
+        function initializeAudioPlayers() {
+             // The Tone.Player handles the asynchronous loading of the audio files
+             // The path "uploaded:..." is expected to be correctly resolved by the environment.
+             bellStartPlayer = new Tone.Player({
+                 url: "uploaded:bell 1.MP3",
+                 onload: () => console.log("Bell 1 loaded."),
+                 onerror: (e) => console.error("Error loading Bell 1:", e),
+             }).toDestination();
+             
+             // Bell 2 for Q&A transition (using bell 3.MP3 as requested)
+             bellQNAPlayer = new Tone.Player({
+                 url: "uploaded:bell 3.MP3",
+                 onload: () => console.log("Bell QNA (2) loaded."),
+                 onerror: (e) => console.error("Error loading Bell 2:", e),
+             }).toDestination();
+
+             // Bell 3 for End (0:00)
+             bellEndPlayer = new Tone.Player({
+                 url: "uploaded:bell 3.MP3",
+                 onload: () => console.log("Bell 3 loaded."),
+                 onerror: (e) => console.error("Error loading Bell 3:", e),
+             }).toDestination();
         }
 
         /**
-         * Formats seconds into MM:SS string.
+         * Plays a Tone.Player instance.
+         * @param {Tone.Player} player - The Tone.Player instance to play.
+         */
+        function playToneBell(player) {
+            // Ensure audio context is started (required by browsers for user interaction)
+            if (Tone.context.state !== 'running') {
+                Tone.start().then(() => {
+                    console.log("Audio Context Started.");
+                    // Check if the player is loaded and not already playing
+                    if (player && player.state === 'started') {
+                        player.stop(); // Stop if already playing (for quick repeated calls)
+                    }
+                    if (player && player.loaded) {
+                        player.start(0); // Play from the start
+                    }
+                }).catch(e => console.error("Failed to start Tone context:", e));
+            } else {
+                 if (player && player.state === 'started') {
+                    player.stop(); 
+                }
+                if (player && player.loaded) {
+                    player.start(0);
+                }
+            }
+        }
+
+
+        /**
+         * Formats seconds into MM:SS string, using absolute value for count-up.
          */
         function formatTime(totalSeconds) {
-            const minutes = Math.floor(totalSeconds / 60);
-            const seconds = totalSeconds % 60;
+            const absoluteSeconds = Math.abs(totalSeconds);
+            const minutes = Math.floor(absoluteSeconds / 60);
+            const seconds = absoluteSeconds % 60;
             return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
         }
 
@@ -115,108 +159,144 @@
          * Updates the timer display and state every second.
          */
         function updateTimer() {
-            if (secondsRemaining <= 0) {
-                clearInterval(timerInterval);
-                isRunning = false;
-                secondsRemaining = 0;
-                
-                // Final Bell Ring at 0:00
-                ringBell("G5", "8n"); // Slightly lower frequency for the final tone
-
-                timerDisplay.textContent = formatTime(0);
-                statusDisplay.textContent = "TIME OVER";
-                statusDisplay.className = 'text-xl font-semibold mt-2 text-red-400';
-                startResetBtn.textContent = 'Reset Timer';
-                startResetBtn.className = startResetBtn.className.replace('bg-blue-600 hover:bg-blue-700', 'bg-red-600 hover:bg-red-700');
-                
-                return;
-            }
-
+            // Decrement the remaining time. It will go into negative numbers for count-up.
             secondsRemaining--;
-            
-            // --- Phase Transition and Bell Logic ---
-            // Transition happens when remaining seconds equals the Q&A phase duration (4 minutes)
-            if (secondsRemaining === QNA_START_REMAINING_SECONDS) {
-                // Bell at 4:00 remaining (End of Presentation / Start of Q&A)
-                ringBell();
-                msgBox.textContent = "発表終了";
-            }
-
-            // --- Update UI ---
-            timerDisplay.textContent = formatTime(secondsRemaining);
             
             let phaseText = '';
             let phaseColor = '';
+            let timeColor = '';
+            let displaySeconds = secondsRemaining;
+
+            // --- Phase Transition and Bell Logic ---
 
             if (secondsRemaining > QNA_START_REMAINING_SECONDS) {
-                // Presentation Phase (4:01 to 10:00)
+                // PHASE 1: PRESENTATION (Countdown: 10:00 down to 4:01)
                 phaseText = 'PRESENTATION';
-                phaseColor = 'text-emerald-400'; // Bright Green
+                phaseColor = 'text-emerald-400'; 
+                timeColor = 'text-emerald-400';
+                msgBox.textContent = '';
+                startPauseContinueBtn.textContent = 'Pause';
+                startPauseContinueBtn.className = startPauseContinueBtn.className.replace('bg-red-600 hover:bg-red-700', 'bg-blue-600 hover:bg-blue-700');
+
+
             } else if (secondsRemaining > 0) {
-                // Q&A Phase (0:01 to 4:00)
-                phaseText = '質疑';
-                phaseColor = 'text-blue-400'; // Bright Blue
-            } else {
-                // Time Over
+                // PHASE 2: Q&A (Countdown: 4:00 down to 0:01)
+                
+                // Bell 2 (Custom Audio) at 4:00 remaining (Q&A phase start)
+                if (secondsRemaining === QNA_START_REMAINING_SECONDS) {
+                    playToneBell(bellQNAPlayer); 
+                    msgBox.textContent = "Presentation time is up! Q&A phase begins.";
+                }
+
+                phaseText = 'Q&A';
+                phaseColor = 'text-blue-400'; 
+                timeColor = 'text-blue-400';
+                startPauseContinueBtn.textContent = 'Pause';
+                startPauseContinueBtn.className = startPauseContinueBtn.className.replace('bg-red-600 hover:bg-red-700', 'bg-blue-600 hover:bg-blue-700');
+                
+            } else if (secondsRemaining === 0) {
+                // PHASE 3: TIME ZERO (Moment of transition)
+                playToneBell(bellEndPlayer); // Bell 3
+                
                 phaseText = 'TIME OVER';
-                phaseColor = 'text-red-400'; // Bright Red
+                phaseColor = 'text-red-400';
+                timeColor = 'text-red-400';
+                msgBox.textContent = 'Total time has elapsed. Entering excess time...';
+                startPauseContinueBtn.textContent = 'Pause (Excess)';
+                startPauseContinueBtn.className = startPauseContinueBtn.className.replace('bg-blue-600 hover:bg-blue-700', 'bg-red-600 hover:bg-red-700');
+
+                
+            } else {
+                // PHASE 4: EXCESS TIME (Count-Up: 0:01, 0:02, ...)
+                
+                // Display the absolute value of the negative remaining seconds
+                displaySeconds = Math.abs(secondsRemaining);
+                
+                phaseText = "EXCESS TIME";
+                phaseColor = 'text-red-400';
+                timeColor = 'text-red-400';
+                startPauseContinueBtn.textContent = 'Pause (Excess)'; 
+                startPauseContinueBtn.className = startPauseContinueBtn.className.replace('bg-blue-600 hover:bg-blue-700', 'bg-red-600 hover:bg-red-700');
+                msgBox.textContent = 'Total time exceeded.';
             }
 
+            // --- Update UI ---
+            timerDisplay.textContent = formatTime(displaySeconds);
             statusDisplay.textContent = phaseText;
             statusDisplay.className = `text-xl font-semibold mt-2 ${phaseColor}`;
+            timerDisplay.className = `timer-display ${timeColor}`;
             
-            if (secondsRemaining < 60 && secondsRemaining % 10 === 0 && secondsRemaining > 0) {
-                 // Subtle warning tone every 10 seconds in the last minute of Q&A
-                 ringBell("D4", "32n");
+            // If the timer is paused, revert button text to 'Continue'
+            if (!isRunning) {
+                 startPauseContinueBtn.textContent = 'Continue';
             }
         }
 
         /**
-         * Starts the timer or resets it based on the current state.
+         * Starts, pauses, or continues the timer.
          */
-        function handleStartReset() {
-            // First, enable the audio context on user click
-            if (Tone.context.state !== 'running') {
-                Tone.start();
-            }
-
+        function handleStartPauseContinue() {
             if (isRunning) {
-                // Stop the timer
+                // Stop the timer (PAUSE)
                 clearInterval(timerInterval);
                 isRunning = false;
-                startResetBtn.textContent = 'Continue';
-            } else if (secondsRemaining > 0 && secondsRemaining < TOTAL_DURATION_SECONDS) {
-                // Continue the timer
-                isRunning = true;
-                timerInterval = setInterval(updateTimer, 1000);
-                startResetBtn.textContent = 'Pause';
+                startPauseContinueBtn.textContent = 'Continue';
             } else {
-                // Start or Reset the timer
-                if (timerInterval) clearInterval(timerInterval);
-                secondsRemaining = TOTAL_DURATION_SECONDS;
+                // START (from initial 10:00) or CONTINUE (from paused state)
+                
+                // Check if this is the very first start (from 10:00)
+                const isInitialStart = secondsRemaining === TOTAL_DURATION_SECONDS;
+                
+                // If paused exactly at 0:00, ensure it starts counting up on next tick
+                if (secondsRemaining === 0) {
+                    secondsRemaining = -1; 
+                }
+                
                 isRunning = true;
-                msgBox.textContent = '';
-                
-                // Initial UI setup
-                timerDisplay.textContent = formatTime(TOTAL_DURATION_SECONDS);
-                statusDisplay.textContent = 'PRESENTATION';
-                statusDisplay.className = 'text-xl font-semibold mt-2 text-emerald-400'; 
-                startResetBtn.textContent = 'Pause';
-                startResetBtn.className = startResetBtn.className.replace('bg-red-600 hover:bg-red-700', 'bg-blue-600 hover:bg-blue-700');
-                
                 timerInterval = setInterval(updateTimer, 1000);
+                
+                // Play Bell 1 only upon the initial start from the READY state
+                if (isInitialStart) {
+                    playToneBell(bellStartPlayer);
+                }
+                
+                // Update button text based on the phase color
+                if (secondsRemaining <= 0) {
+                    startPauseContinueBtn.textContent = 'Pause (Excess)';
+                } else {
+                    startPauseContinueBtn.textContent = 'Pause';
+                }
+                
             }
         }
+        
+        /**
+         * Resets the timer to the initial state (10:00, READY, paused).
+         */
+        function handleReset() {
+            clearInterval(timerInterval);
+            isRunning = false;
+            secondsRemaining = TOTAL_DURATION_SECONDS;
+            msgBox.textContent = '';
+
+            // Set initial UI state
+            timerDisplay.textContent = formatTime(TOTAL_DURATION_SECONDS);
+            statusDisplay.textContent = 'READY';
+            statusDisplay.className = 'text-xl font-semibold mt-2 text-emerald-400'; 
+            timerDisplay.className = 'timer-display text-emerald-400';
+            startPauseContinueBtn.textContent = 'Start Timer';
+            startPauseContinueBtn.className = startPauseContinueBtn.className.replace('bg-red-600 hover:bg-red-700', 'bg-blue-600 hover:bg-blue-700');
+        }
+
 
         // --- Initialization ---
         document.addEventListener('DOMContentLoaded', () => {
-            handleStartReset(); // Initial call sets up the UI for the "Start Timer" state
-            clearInterval(timerInterval); // Stop the timer immediately after setup
-            isRunning = false;
-            startResetBtn.textContent = 'Start Timer';
+            initializeAudioPlayers(); // Initialize Tone.js players on load
+            handleReset(); // Initial setup to display 10:00 and READY, but paused.
         });
 
-        startResetBtn.addEventListener('click', handleStartReset);
+        startPauseContinueBtn.addEventListener('click', handleStartPauseContinue);
+        resetBtn.addEventListener('click', handleReset);
     </script>
 </body>
 </html>
