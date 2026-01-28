@@ -1,55 +1,51 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Presentation & Q&A Timer</title>
+    <title>卒論発表会タイマー</title>
     <!-- Load Tailwind CSS for modern styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Removed Tone.js script as it is no longer needed -->
+    <!-- Load Tone.js for reliable, generated bell sounds -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
-        /* Custom styles for appearance */
         body {
-            font-family: 'Inter', sans-serif;
-            /* Dark background */
-            background-color: #111827; /* Tailwind Gray 900 */
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+            background-color: #111827; /* Dark background */
         }
         .timer-display {
-            /* Fluid font size for responsiveness (large digital display) */
             font-size: clamp(3rem, 15vw, 10rem); 
             font-weight: 800;
-            line-height: 1; /* Tighter line spacing */
+            line-height: 1;
             letter-spacing: -0.05em;
         }
     </style>
 </head>
-<!-- Apply dark background and light text to the body -->
 <body class="min-h-screen flex items-center justify-center p-4 text-gray-100">
 
-    <!-- Main Container: Dark card background -->
-    <div id="timer-app" class="w-full max-w-lg bg-gray-800 shadow-2xl rounded-xl p-8 sm:p-12 text-center transition-all duration-500">
+    <!-- Main Container -->
+    <div id="timer-app" class="w-full max-w-2xl bg-gray-800 shadow-2xl rounded-xl p-8 sm:p-12 text-center transition-all duration-500">
         
-        <h1 class="text-3xl font-bold mb-2 text-gray-100">中間発表会</h1>
-        <p id="total-time-info" class="text-sm text-gray-400 mb-8">発表6分 & 質疑4分 (10:00 Total)</p>
+        <h1 class="text-4xl font-bold mb-2 text-gray-100">卒論発表会</h1>
+        <p id="total-time-info" class="text-lg text-gray-400 mb-8">Presentation: 15 minutes | Q&A: 10 minutes</p>
 
-        <!-- Timer Display Area: Now just a centered container for the text -->
-        <div id="timer-ring-container" class="flex flex-col items-center justify-center mb-8">
+        <!-- Timer Display Area -->
+        <div class="flex flex-col items-center justify-center mb-10">
             <!-- Timer Display (Digital Time) -->
-            <div id="timer-display" class="timer-display text-emerald-400">10:00</div>
-            <!-- Status Display (Presentation / Q&A) -->
-            <div id="status-display" class="text-xl font-semibold mt-2 text-emerald-400">READY</div>
+            <div id="timer-display" class="timer-display text-emerald-400">25:00</div>
+            <!-- Status Display -->
+            <div id="status-display" class="text-2xl font-semibold mt-4 text-emerald-400">READY</div>
         </div>
 
         <!-- Controls -->
         <div class="space-y-4">
-            <!-- Buttons arranged side-by-side -->
             <div class="flex space-x-4">
                 <button id="start-pause-continue-btn" 
-                        class="flex-1 py-3 text-lg font-semibold rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition duration-150 shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-300">
+                        class="flex-1 py-4 text-xl font-semibold rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition duration-150 shadow-md focus:outline-none focus:ring-4 focus:ring-blue-300">
                     Start Timer
                 </button>
                 <button id="reset-btn" 
-                        class="py-3 px-6 text-lg font-semibold rounded-lg text-white bg-gray-600 hover:bg-gray-700 transition duration-150 shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-gray-500">
+                        class="py-4 px-8 text-xl font-semibold rounded-lg text-white bg-gray-600 hover:bg-gray-700 transition duration-150 shadow-md focus:outline-none focus:ring-4 focus:ring-gray-500">
                     Reset
                 </button>
             </div>
@@ -60,12 +56,12 @@
 
     <script>
         // --- Configuration Constants ---
-        const PRESENTATION_DURATION_SECONDS = 6 * 60; // 360 seconds
-        const QNA_DURATION_SECONDS = 4 * 60; // 240 seconds
-        const TOTAL_DURATION_SECONDS = PRESENTATION_DURATION_SECONDS + QNA_DURATION_SECONDS; // 600 seconds
+        const PRESENTATION_DURATION_SECONDS = 15 * 60; // 900 seconds
+        const QNA_DURATION_SECONDS = 10 * 60; // 600 seconds
+        const TOTAL_DURATION_SECONDS = PRESENTATION_DURATION_SECONDS + QNA_DURATION_SECONDS; // 1500 seconds (25 mins)
         
-        // TRANSITION POINT 1 (Q&A Start): Timer shows 4:00 (240 seconds remaining)
-        const QNA_START_REMAINING_SECONDS = TOTAL_DURATION_SECONDS - PRESENTATION_DURATION_SECONDS; // 600 - 360 = 240 seconds
+        // Transition Point: Timer shows 10:00 (when 15 mins have passed)
+        const QNA_START_REMAINING_SECONDS = QNA_DURATION_SECONDS; 
 
         // --- DOM Elements ---
         const timerDisplay = document.getElementById('timer-display');
@@ -73,17 +69,37 @@
         const startPauseContinueBtn = document.getElementById('start-pause-continue-btn'); 
         const resetBtn = document.getElementById('reset-btn');
         const msgBox = document.getElementById('message-box');
-
+        
         // --- State Variables ---
         let secondsRemaining = TOTAL_DURATION_SECONDS;
         let timerInterval = null;
         let isRunning = false;
-        
-        // Removed all Tone.js functions (ringStartBell, ringQNABell, ringEndBell)
-        
+        let bellSynth = null;
+
         /**
-         * Formats seconds into MM:SS string, using absolute value for count-up.
+         * desk bell sound effect using Tone.js
          */
+        function ringBell(frequency = "E5", duration = "16n") {
+            try {
+                if (!bellSynth) {
+                    bellSynth = new Tone.MetalSynth({
+                        frequency: 200, 
+                        envelope: { attack: 0.001, decay: 0.4, release: 0.2 },
+                        harmonicity: 3.1, 
+                        modulationIndex: 1, 
+                        resonance: 4000, 
+                        octaves: 1.5 
+                    }).toDestination();
+                }
+                if (Tone.context.state !== 'running') {
+                    Tone.start();
+                }
+                bellSynth.triggerAttackRelease(frequency, duration);
+            } catch (e) {
+                console.error("Audio error:", e);
+            }
+        }
+        
         function formatTime(totalSeconds) {
             const absoluteSeconds = Math.abs(totalSeconds);
             const minutes = Math.floor(absoluteSeconds / 60);
@@ -91,11 +107,7 @@
             return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
         }
 
-        /**
-         * Updates the timer display and state every second.
-         */
         function updateTimer() {
-            // Decrement the remaining time. It will go into negative numbers for count-up.
             secondsRemaining--;
             
             let phaseText = '';
@@ -103,143 +115,76 @@
             let timeColor = '';
             let displaySeconds = secondsRemaining;
 
-            // --- Phase Transition Logic ---
-
             if (secondsRemaining > QNA_START_REMAINING_SECONDS) {
-                // PHASE 1: PRESENTATION (Countdown: 10:00 down to 4:01)
+                // PHASE: PRESENTATION
                 phaseText = 'PRESENTATION';
                 phaseColor = 'text-emerald-400'; 
                 timeColor = 'text-emerald-400';
-                msgBox.textContent = '';
-                startPauseContinueBtn.textContent = 'Pause';
-                startPauseContinueBtn.className = startPauseContinueBtn.className.replace('bg-red-600 hover:bg-red-700', 'bg-blue-600 hover:bg-blue-700');
-
 
             } else if (secondsRemaining > 0) {
-                // PHASE 2: Q&A (Countdown: 4:00 down to 0:01)
-                
-                // Message alert at 4:00 remaining (Q&A phase start)
+                // PHASE: Q&A
                 if (secondsRemaining === QNA_START_REMAINING_SECONDS) {
-                    // Removed ringQNABell()
-                    msgBox.textContent = "Presentation time is up! Q&A phase begins.";
+                    ringBell("E5", "8n"); // Bell after 15 minutes
+                    msgBox.textContent = "Presentation finished. Q&A starts.";
                 }
-
                 phaseText = 'Q&A';
                 phaseColor = 'text-blue-400'; 
                 timeColor = 'text-blue-400';
-                startPauseContinueBtn.textContent = 'Pause';
-                startPauseContinueBtn.className = startPauseContinueBtn.className.replace('bg-red-600 hover:bg-red-700', 'bg-blue-600 hover:bg-blue-700');
                 
             } else if (secondsRemaining === 0) {
-                // PHASE 3: TIME ZERO (Moment of transition)
-                // Removed ringEndBell()
-                
+                // PHASE: TIME UP
+                ringBell("G5", "4n"); // Bell when 25 minutes are up
                 phaseText = 'TIME OVER';
                 phaseColor = 'text-red-400';
                 timeColor = 'text-red-400';
-                msgBox.textContent = 'Total time has elapsed. Entering excess time...';
-                startPauseContinueBtn.textContent = 'Pause (Excess)';
-                startPauseContinueBtn.className = startPauseContinueBtn.className.replace('bg-blue-600 hover:bg-blue-700', 'bg-red-600 hover:bg-red-700');
-
+                msgBox.textContent = 'Time is up!';
                 
             } else {
-                // PHASE 4: EXCESS TIME (Count-Up: 0:01, 0:02, ...)
-                
-                // Display the absolute value of the negative remaining seconds
+                // PHASE: EXCESS TIME (Count-Up)
                 displaySeconds = Math.abs(secondsRemaining);
-                
                 phaseText = "EXCESS TIME";
                 phaseColor = 'text-red-400';
                 timeColor = 'text-red-400';
-                startPauseContinueBtn.textContent = 'Pause (Excess)'; 
-                startPauseContinueBtn.className = startPauseContinueBtn.className.replace('bg-blue-600 hover:bg-blue-700', 'bg-red-600 hover:bg-red-700');
                 msgBox.textContent = 'Total time exceeded.';
             }
 
-            // --- Update UI ---
             timerDisplay.textContent = formatTime(displaySeconds);
             statusDisplay.textContent = phaseText;
-            statusDisplay.className = `text-xl font-semibold mt-2 ${phaseColor}`;
+            statusDisplay.className = `text-2xl font-semibold mt-4 ${phaseColor}`;
             timerDisplay.className = `timer-display ${timeColor}`;
             
-            // If the timer is paused, revert button text to 'Continue'
             if (!isRunning) {
                  startPauseContinueBtn.textContent = 'Continue';
             }
         }
 
-        /**
-         * Starts, pauses, or continues the timer.
-         */
         function handleStartPauseContinue() {
-            // No audio context setup needed anymore
-            startOrContinueTimer();
-        }
-        
-        /**
-         * Contains the core logic for starting/continuing the timer.
-         */
-        function startOrContinueTimer() {
-            // The button is never disabled now
-            
+            if (Tone.context.state !== 'running') {
+                Tone.start();
+            }
+
             if (isRunning) {
-                // Stop the timer (PAUSE)
                 clearInterval(timerInterval);
                 isRunning = false;
                 startPauseContinueBtn.textContent = 'Continue';
             } else {
-                // START (from initial 10:00) or CONTINUE (from paused state)
-                
-                // Check if this is the very first start (from 10:00)
-                const isInitialStart = secondsRemaining === TOTAL_DURATION_SECONDS;
-                
-                // If paused exactly at 0:00, ensure it starts counting up on next tick
-                if (secondsRemaining === 0) {
-                    secondsRemaining = -1; 
-                }
-                
                 isRunning = true;
                 timerInterval = setInterval(updateTimer, 1000);
-                
-                // Removed ringStartBell()
-                
-                // Update button text based on the phase color
-                if (secondsRemaining <= 0) {
-                    startPauseContinueBtn.textContent = 'Pause (Excess)';
-                } else {
-                    startPauseContinueBtn.textContent = 'Pause';
-                }
+                startPauseContinueBtn.textContent = secondsRemaining <= 0 ? 'Pause (Excess)' : 'Pause';
             }
         }
-
-
         
-        /**
-         * Resets the timer to the initial state (10:00, READY, paused).
-         */
         function handleReset() {
             clearInterval(timerInterval);
             isRunning = false;
             secondsRemaining = TOTAL_DURATION_SECONDS;
             msgBox.textContent = '';
-
-            // Set initial UI state
             timerDisplay.textContent = formatTime(TOTAL_DURATION_SECONDS);
             statusDisplay.textContent = 'READY';
-            statusDisplay.className = 'text-xl font-semibold mt-2 text-emerald-400'; 
+            statusDisplay.className = 'text-2xl font-semibold mt-4 text-emerald-400'; 
             timerDisplay.className = 'timer-display text-emerald-400';
-            
-            // Restore button text/state
-            startPauseContinueBtn.disabled = false;
             startPauseContinueBtn.textContent = 'Start Timer';
-            startPauseContinueBtn.className = startPauseContinueBtn.className.replace('bg-red-600 hover:bg-red-700', 'bg-blue-600 hover:bg-blue-700');
         }
-
-
-        // --- Initialization ---
-        document.addEventListener('DOMContentLoaded', () => {
-            handleReset(); // Initial setup to display 10:00 and READY, but paused.
-        });
 
         startPauseContinueBtn.addEventListener('click', handleStartPauseContinue);
         resetBtn.addEventListener('click', handleReset);
